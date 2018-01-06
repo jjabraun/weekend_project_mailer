@@ -16,27 +16,40 @@ class AirtableApi:
 
 class Mailer:
     def __init__(self, **kwargs):
-        # todo add docstring
+        """
+        Initialize mail handler.
+        :param kwargs['host']: SMTP host, string
+        :param kwargs['port']: SMTP port, string
+        :param kwargs['username']: Username, string
+        :param kwargs['password']: Password, string
+        :param kwargs['retry_sleep']: Retry sleep (seconds), integer
+        :param kwargs['retry_count']: Retry count (number of attempts), integer
+        """
+
+        logging.debug('Mailer class instantiated.')
         self.host = kwargs.get('host')
-        self.port = kwargs.get('port')  # todo needed?
+        self.port = kwargs.get('port')
         self.username = kwargs.get('username')
         self.password = kwargs.get('password')
         self.retry_count = kwargs.get('retry_count')
         self.retry_sleep = kwargs.get('retry_sleep')
 
-        self.send_mail(
-            'jjabraun@gmail.com',
-            'jjabraun@gmail.com',
-            'test',
-            'test',
-        )
-
     def send_mail(self, sender, recipient_list, subject, message, high_priority=False):
-        # todo add docstring
+        """
+        Send mail.
+        :param sender: Sender email address, string
+        :param recipient_list: Recipient email addresses, list
+        :param subject: Subject, string
+        :param message: Message, string
+        :param high_priority: Flag as high priority, Boolean
+        :return: None
+        """
+
         import smtplib
         from email.mime.text import MIMEText
         from time import sleep
 
+        logging.debug('Sending message with subject "{0}" to "{1}".'.format(subject, '", "'.join(recipient_list)))
         msg = MIMEText(message)
         msg['From'] = sender
         msg['To'] = ', '.join(recipient_list)
@@ -45,17 +58,24 @@ class Mailer:
             msg['X-Priority'] = '2'
         for connect_attempt in range(self.retry_count):
             try:
-                s = smtplib.SMTP(self.host)
+                con = smtplib.SMTP(self.host, self.port)
+                con.ehlo()
+                con.starttls()
+                con.ehlo()
+                con.login(self.username, self.password)
             except smtplib.socket.gaierror as e:
+                logging.error('SMTP connection failed: "{0}"'.format(e))
                 sleep(self.retry_sleep)
             else:
                 for send_attempt in range(self.retry_count):
                     try:
-                        s.send_message(msg)
+
+                        con.send_message(msg)
                     except smtplib.SMTPException as e:
+                        logging.error('Send message failed: "{0}"'.format(e))
                         sleep(self.retry_sleep)
                     else:
-                        s.quit()
+                        con.quit()
                         break
                 break
 
@@ -101,10 +121,10 @@ if __name__ == '__main__':
     # todo get data
     # todo add unit tests, for practice
 
-    # Send email
+    # Send mail
     mailer = Mailer(
         host=config['mailer']['host'],
-        port=config['mailer']['port'],
+        port=int(config['mailer']['port']),
         username=config['mailer']['username'],
         password=config['mailer']['password'],
         retry_count=int(config['mailer']['retry_count']),
