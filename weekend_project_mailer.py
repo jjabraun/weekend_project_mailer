@@ -118,7 +118,7 @@ class Mailer:
         from email.mime.text import MIMEText
         from time import sleep
 
-        logging.debug('Sending message with subject "{0}" to "{1}".'.format(subject, '", "'.join(recipient_list)))
+        logging.info('Sending message with subject "{0}" to "{1}".'.format(subject, '", "'.join(recipient_list)))
         msg = MIMEText(message)
         msg['From'] = sender
         msg['To'] = ', '.join(recipient_list)
@@ -187,16 +187,26 @@ if __name__ == '__main__':
     )
     logging.info('Script started.')
 
+    # todo Only run on the given day of the week
+
     # Retrieve Airtable data
     airtable = AirtableApi(
         api_key=config['airtable']['api_key'],
         retry_count=int(config['airtable']['retry_count']),
         retry_sleep=int(config['airtable']['retry_sleep']),
     )
-    df = airtable.return_table_as_dataframe(config['airtable']['base_id'], config['airtable']['table_name'])
+    airtable_df = airtable.return_table_as_dataframe(config['airtable']['base_id'], config['airtable']['table_name'])
 
-    # todo select projects
-    # todo create message
+    # Create message
+    logging.info('Creating message.')
+    message = '{0}\n\n'.format(config['settings']['message'])
+    for do_soon in airtable_df.loc[airtable_df['fields.Do Soon'] == True]['fields.Project']:
+        message += '- {0}\n'.format(do_soon)
+    for c in airtable_df['fields.Category'].unique():
+        records_in_category = airtable_df.loc[airtable_df['fields.Category'] == c]
+        incomplete_records = records_in_category[records_in_category['fields.Done'] != True]
+        random_project = incomplete_records.sample()['fields.Project'].iloc[0]
+        message += '- {0}\n'.format(random_project)
 
     # Send mail
     mailer = Mailer(
@@ -211,5 +221,5 @@ if __name__ == '__main__':
         config['settings']['sender'],
         config['settings']['recipients'].split(','),
         config['settings']['subject'],
-        '',  # todo create message
+        message,
     )
