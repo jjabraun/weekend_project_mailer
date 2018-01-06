@@ -11,7 +11,35 @@ __status__ = 'Development'
 
 class AirtableApi:
     def __init__(self, **kwargs):
-        pass
+        """
+        Initialize Airtable API connection.
+        :param kwargs['api_key']: API key, string
+        :param kwargs['base_id']: Base ID, string
+        :param kwargs['table_name']: Table name, string
+        """
+
+        logging.debug('Initializing AirtableApi class.')
+        self.api_key = kwargs.get('api_key')
+        self.base_id = kwargs.get('base_id')
+        self.table_name = kwargs.get('table_name')
+
+        import requests
+        import urllib.parse
+        r = requests.get(
+            'https://api.airtable.com/v0/{0}/{1}?api_key={2}'.format(
+                self.base_id,
+                urllib.parse.quote(self.table_name, safe=''),
+                self.api_key
+            )
+        )
+
+        import json
+        import pandas as pd
+        from pandas.io.json import json_normalize
+
+        j = json.loads(r.content)
+        df = json_normalize(j['records'])
+        print(df)
 
 
 class Mailer:
@@ -26,7 +54,7 @@ class Mailer:
         :param kwargs['retry_count']: Retry count (number of attempts), integer
         """
 
-        logging.debug('Mailer class instantiated.')
+        logging.debug('Initializing Mailer class.')
         self.host = kwargs.get('host')
         self.port = kwargs.get('port')
         self.username = kwargs.get('username')
@@ -118,7 +146,13 @@ if __name__ == '__main__':
     )
     logging.info('Script started.')
 
-    # todo get data
+    # todo Retrieve Airtable data
+    airtable = AirtableApi(
+        api_key=config['airtable']['api_key'],
+        base_id=config['airtable']['base_id'],
+        table_name=config['airtable']['table_name'],
+    )
+
     # todo add unit tests, for practice
 
     # Send mail
