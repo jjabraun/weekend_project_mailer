@@ -14,32 +14,73 @@ class AirtableApi:
         """
         Initialize Airtable API connection.
         :param kwargs['api_key']: API key, string
-        :param kwargs['base_id']: Base ID, string
-        :param kwargs['table_name']: Table name, string
+        :param kwargs['retry_sleep']: Retry sleep (seconds), integer
+        :param kwargs['retry_count']: Retry count (number of attempts), integer
         """
 
         logging.debug('Initializing AirtableApi class.')
         self.api_key = kwargs.get('api_key')
-        self.base_id = kwargs.get('base_id')
-        self.table_name = kwargs.get('table_name')
+        self.retry_sleep = kwargs.get('retry_sleep')
+        self.retry_count = kwargs.get('retry_count')
+
+    def _retrieve_table_json(self, base_id, table_name):
+        """
+        Retrieve table JSON.
+        :param base_id: Base ID, string
+        :param table_name: Table name, string
+        :return: Table data, JSON object
+        """
 
         import requests
-        import urllib.parse
-        r = requests.get(
-            'https://api.airtable.com/v0/{0}/{1}?api_key={2}'.format(
-                self.base_id,
-                urllib.parse.quote(self.table_name, safe=''),
-                self.api_key
-            )
-        )
-
         import json
-        import pandas as pd
+        import urllib.parse
+        from time import sleep
+
+        logging.debug('Retrieving table "{0}".'.format(table_name))
+        endpoint = 'https://api.airtable.com/v0/{0}/{1}?api_key={2}'.format(
+            base_id,
+            urllib.parse.quote(table_name, safe=''),
+            self.api_key
+        )
+        for attempt in range(self.retry_count):
+            try:
+                response = requests.get(endpoint)
+                response.raise_for_status()
+            except requests.exceptions.RequestException as e:
+                logging.error('Exception during GET from endpoint "{0}": "{1}".'.format(endpoint, e), exc_info=True)
+                sleep(self.retry_sleep)
+            else:
+                logging.debug('GET finished successfully.')
+                return json.loads(response.content)
+        else:
+            m = 'GET retried {0} times and failed.  Exiting.'.format(self.retry_count)
+            logging.error(m)
+            sys.exit(m)
+
+    @staticmethod
+    def _read_json_to_dataframe(input_json):
+        """
+        Read tabular data from JSON into a Pandas dataframe.
+        :param input_json: Tabular data, JSON object
+        :return: Tablular data, Pandas dataframe
+        """
+
         from pandas.io.json import json_normalize
 
-        j = json.loads(r.content)
-        df = json_normalize(j['records'])
-        print(df)
+        logging.debug('Reading data from JSON into dataframe.')
+        return json_normalize(input_json['records'])
+
+    def return_table_as_dataframe(self, base_id, table_name):
+        """
+        Return the given Airtable as Pandas dataframe.
+        :param base_id: Base ID, string
+        :param table_name: Table name, string
+        :return: Airtable data, Pandas dataframe.
+        """
+
+        logging.info('Returning Airtable "{0}" as dataframe.'.format(table_name))
+        j = self._retrieve_table_json(base_id, table_name)
+        return self._read_json_to_dataframe(j)
 
 
 class Mailer:
@@ -146,14 +187,16 @@ if __name__ == '__main__':
     )
     logging.info('Script started.')
 
-    # todo Retrieve Airtable data
+    # Retrieve Airtable data
     airtable = AirtableApi(
         api_key=config['airtable']['api_key'],
-        base_id=config['airtable']['base_id'],
-        table_name=config['airtable']['table_name'],
+        retry_count=int(config['airtable']['retry_count']),
+        retry_sleep=int(config['airtable']['retry_sleep']),
     )
+    df = airtable.return_table_as_dataframe(config['airtable']['base_id'], config['airtable']['table_name'])
 
-    # todo add unit tests, for practice
+    # todo select projects
+    # todo create message
 
     # Send mail
     mailer = Mailer(
@@ -163,4 +206,10 @@ if __name__ == '__main__':
         password=config['mailer']['password'],
         retry_count=int(config['mailer']['retry_count']),
         retry_sleep=int(config['mailer']['retry_sleep']),
+    )
+    mailer.send_mail(
+        config['settings']['sender'],
+        config['settings']['recipients'].split(','),
+        config['settings']['subject'],
+        '',  # todo create message
     )
