@@ -6,7 +6,7 @@ __version__ = '1.0.0'
 __date__ = '05 Jan 2017'
 __maintainer__ = 'Joshua Braun'
 __email__ = 'jjabraun@gmail.com'
-__status__ = 'Development'
+__status__ = 'Production'
 
 
 class AirtableApi:
@@ -156,6 +156,7 @@ if __name__ == '__main__':
     import configparser
     import logging
 
+    from datetime import datetime
     from logging.handlers import TimedRotatingFileHandler
 
     # Parse arguments
@@ -187,7 +188,19 @@ if __name__ == '__main__':
     )
     logging.info('Script started.')
 
-    # todo Only run on the given day of the week
+    # Only run on the given day of the week
+    weekday_map = {
+        'monday': 0,
+        'tuesday': 1,
+        'wednesday': 2,
+        'thursday': 3,
+        'friday': 4,
+        'saturday': 5,
+        'sunday': 6,
+    }
+    if datetime.now().weekday() != weekday_map[config['settings']['weekday'].lower()]:
+        logging.info('Today isn\'t {0}.  Exiting.'.format(config['settings']['weekday']))
+        sys.exit()
 
     # Retrieve Airtable data
     airtable = AirtableApi(
