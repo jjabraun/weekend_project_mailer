@@ -212,14 +212,14 @@ if __name__ == '__main__':
 
     # Create message
     logging.info('Creating message.')
-    message = '{0}\n\n'.format(config['settings']['message'])
+    mail_message = '{0}\n\n'.format(config['settings']['message'])
     for do_soon in airtable_df.loc[airtable_df['fields.Do Soon'] == True]['fields.Project']:
-        message += '- {0}\n'.format(do_soon)
+        mail_message += '- {0}\n'.format(do_soon)
     for c in airtable_df['fields.Category'].unique():
         records_in_category = airtable_df.loc[airtable_df['fields.Category'] == c]
         incomplete_records = records_in_category[records_in_category['fields.Done'] != True]
         random_project = incomplete_records.sample()['fields.Project'].iloc[0]
-        message += '- {0}\n'.format(random_project)
+        mail_message += '- {0}\n'.format(random_project)
 
     # Send mail
     mailer = Mailer(
@@ -234,5 +234,5 @@ if __name__ == '__main__':
         config['settings']['sender'],
         config['settings']['recipients'].split(','),
         config['settings']['subject'],
-        message,
+        mail_message,
     )
