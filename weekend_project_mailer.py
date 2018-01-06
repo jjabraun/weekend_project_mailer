@@ -2,8 +2,8 @@ __author__ = 'Joshua Braun'
 __copyright__ = 'Copyright 2018, Joshua Braun'
 __credits__ = ['Joshua Braun']
 __license__ = ''
-__version__ = '1.0.0'
-__date__ = '05 Jan 2017'
+__version__ = '1.0.1'
+__date__ = '06 Jan 2017'
 __maintainer__ = 'Joshua Braun'
 __email__ = 'jjabraun@gmail.com'
 __status__ = 'Production'
@@ -213,12 +213,12 @@ if __name__ == '__main__':
     # Create message
     logging.info('Creating message.')
     mail_message = '{0}\n\n'.format(config['settings']['message'])
-    for do_soon in airtable_df.loc[airtable_df['fields.Do Soon'] == True]['fields.Project']:
+    incomplete_projects_df = airtable_df.loc[airtable_df['fields.Done'] != True]
+    for do_soon in incomplete_projects_df.loc[incomplete_projects_df['fields.Do Soon'] == True]['fields.Project']:
         mail_message += '- {0}\n'.format(do_soon)
-    for c in airtable_df['fields.Category'].unique():
-        records_in_category = airtable_df.loc[airtable_df['fields.Category'] == c]
-        incomplete_records = records_in_category[records_in_category['fields.Done'] != True]
-        random_project = incomplete_records.sample()['fields.Project'].iloc[0]
+    for c in incomplete_projects_df['fields.Category'].unique():
+        projects_in_category_df = incomplete_projects_df.loc[airtable_df['fields.Category'] == c]
+        random_project = projects_in_category_df.sample()['fields.Project'].iloc[0]
         mail_message += '- {0}\n'.format(random_project)
 
     # Send mail
