@@ -2,8 +2,8 @@ __author__ = 'Joshua Braun'
 __copyright__ = 'Copyright 2018, Joshua Braun'
 __credits__ = ['Joshua Braun']
 __license__ = ''
-__version__ = '1.0.1'
-__date__ = '06 Jan 2018'
+__version__ = '1.0.2'
+__date__ = '20 Jan 2018'
 __maintainer__ = 'Joshua Braun'
 __email__ = 'jjabraun@gmail.com'
 __status__ = 'Production'
@@ -168,7 +168,7 @@ if __name__ == '__main__':
     )
     args = arg_parser.parse_args(sys.argv[1:])
 
-    # Parse config file
+    # Read config file
     config = configparser.ConfigParser()
     config.read('config.ini')
 
@@ -178,7 +178,7 @@ if __name__ == '__main__':
     file_handler = TimedRotatingFileHandler(
         os.path.join(log_file),
         when='midnight',
-        backupCount=config['logger']['backup_count']
+        backupCount=config.getint('logger', 'backup_count')
     )
     console_handler = logging.StreamHandler()
     logging.basicConfig(
@@ -198,21 +198,24 @@ if __name__ == '__main__':
         'saturday': 5,
         'sunday': 6,
     }
-    if datetime.now().weekday() != weekday_map[config['settings']['weekday'].lower()]:
-        logging.info('Today isn\'t {0}.  Exiting.'.format(config['settings']['weekday']))
+    if datetime.now().weekday() != weekday_map[config.get('settings', 'weekday').lower()]:
+        logging.info('Today isn\'t {0}.  Exiting.'.format(config.get('settings', 'weekday')))
         sys.exit()
 
     # Retrieve Airtable data
     airtable = AirtableApi(
-        api_key=config['airtable']['api_key'],
-        retry_count=int(config['airtable']['retry_count']),
-        retry_sleep=int(config['airtable']['retry_sleep']),
+        api_key=config.get('airtable', 'api_key'),
+        retry_count=config.getint('airtable', 'retry_count'),
+        retry_sleep=config.getint('airtable', 'retry_sleep'),
     )
-    airtable_df = airtable.return_table_as_dataframe(config['airtable']['base_id'], config['airtable']['table_name'])
+    airtable_df = airtable.return_table_as_dataframe(
+        config.get('airtable', 'base_id'),
+        config.get('airtable', 'table_name')
+    )
 
     # Create message
     logging.info('Creating message.')
-    mail_message = '{0}\n\n'.format(config['settings']['message'])
+    mail_message = '{0}\n\n'.format(config.get('settings', 'message'))
     incomplete_projects_df = airtable_df.loc[airtable_df['fields.Done'] != True]
     for do_soon in incomplete_projects_df.loc[incomplete_projects_df['fields.Do Soon'] == True]['fields.Project']:
         mail_message += '- {0}\n'.format(do_soon)
@@ -223,16 +226,16 @@ if __name__ == '__main__':
 
     # Send mail
     mailer = Mailer(
-        host=config['mailer']['host'],
-        port=int(config['mailer']['port']),
-        username=config['mailer']['username'],
-        password=config['mailer']['password'],
-        retry_count=int(config['mailer']['retry_count']),
-        retry_sleep=int(config['mailer']['retry_sleep']),
+        host=config.get('mailer', 'host'),
+        port=config.getint('mailer', 'port'),
+        username=config.get('mailer', 'username'),
+        password=config.get('mailer', 'password'),
+        retry_count=config.getint('mailer', 'retry_count'),
+        retry_sleep=config.getint('mailer', 'retry_sleep'),
     )
     mailer.send_mail(
-        config['settings']['sender'],
-        config['settings']['recipients'].split(','),
-        config['settings']['subject'],
+        config.get('settings', 'sender'),
+        config.get('settings', 'recipients').split(','),
+        config.get('settings', 'subject'),
         mail_message,
     )
